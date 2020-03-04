@@ -210,8 +210,35 @@ public class RNPushNotificationHelper {
                 }
             }
 
+            NOTIFICATION_CHANNEL_ID_TMP = NOTIFICATION_CHANNEL_ID;
 
-            NOTIFICATION_CHANNEL_ID_TMP = ""+ NOTIFICATION_CHANNEL_ID;
+            Uri soundUri = null;
+            if (!bundle.containsKey("playSound") || bundle.getBoolean("playSound")) {
+                soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+                String soundName = bundle.getString("soundName");
+                if (soundName != null) {
+                    if (!"default".equalsIgnoreCase(soundName)) {
+
+                        // sound name can be full filename, or just the resource name.
+                        // So the strings 'my_sound.mp3' AND 'my_sound' are accepted
+                        // The reason is to make the iOS and android javascript interfaces compatible
+
+                        int resId;
+                        if (context.getResources().getIdentifier(soundName, "raw", context.getPackageName()) != 0) {
+                            resId = context.getResources().getIdentifier(soundName, "raw", context.getPackageName());
+                        } else {
+                            soundName = soundName.substring(0, soundName.lastIndexOf('.'));
+                            resId = context.getResources().getIdentifier(soundName, "raw", context.getPackageName());
+                        }
+
+                        soundUri = Uri.parse("android.resource://" + context.getPackageName() + "/" + resId);
+
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) { // API 26 and higher
+                            NOTIFICATION_CHANNEL_ID_TMP += "-" + soundName;
+                        }
+                    }
+                }
+            }
 
             NotificationCompat.Builder notification = new NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID_TMP)
                     .setContentTitle(title)
@@ -290,36 +317,7 @@ public class RNPushNotificationHelper {
             bundle.putBoolean("userInteraction", true);
             intent.putExtra("notification", bundle);
 
-            Uri soundUri = null;
-            if (!bundle.containsKey("playSound") || bundle.getBoolean("playSound")) {
-                soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-                String soundName = bundle.getString("soundName");
-                if (soundName != null) {
-                    if (!"default".equalsIgnoreCase(soundName)) {
-
-                        // sound name can be full filename, or just the resource name.
-                        // So the strings 'my_sound.mp3' AND 'my_sound' are accepted
-                        // The reason is to make the iOS and android javascript interfaces compatible
-
-                        int resId;
-                        if (context.getResources().getIdentifier(soundName, "raw", context.getPackageName()) != 0) {
-                            resId = context.getResources().getIdentifier(soundName, "raw", context.getPackageName());
-                        } else {
-                            soundName = soundName.substring(0, soundName.lastIndexOf('.'));
-                            resId = context.getResources().getIdentifier(soundName, "raw", context.getPackageName());
-                        }
-
-                        soundUri = Uri.parse("android.resource://" + context.getPackageName() + "/" + resId);
-
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) { // API 26 and higher
-                            NOTIFICATION_CHANNEL_ID_TMP = NOTIFICATION_CHANNEL_ID +"-"+ soundName;
-                            notification.setChannelId(NOTIFICATION_CHANNEL_ID_TMP);
-                        }
-
-                    }
-                }
-                notification.setSound(soundUri);
-            }
+            notification.setSound(soundUri);
 
             if (soundUri == null || Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 notification.setSound(null);
@@ -626,6 +624,10 @@ public class RNPushNotificationHelper {
                 channel.setSound(null, null);
             }
             manager.createNotificationChannel(channel);
+            Log.v(LOG_TAG, "createdChannel: " + channel);
+        }
+        else {
+            Log.v(LOG_TAG, "usingChannel: " + channel);
         }
     }
 }
